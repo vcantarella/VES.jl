@@ -1,0 +1,6 @@
+channels = ["conda-forge", "gimli", "conda-forge", "gimli", "conda-forge", "gimli", "conda-forge", "gimli"]
+
+[deps]
+pygimli = ""
+numpy = "<2.0"
+python = ">=3.11,<3.12"
