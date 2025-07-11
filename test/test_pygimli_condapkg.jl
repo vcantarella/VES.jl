@@ -299,3 +299,17 @@ end
         end
     end
 end
+            
+            # Test homogeneous half-space accuracy
+            ρ_homogeneous = [100.0]
+            h_homogeneous = Float64[]
+            
+            rho_a = VES.wenner_apparent_resistivity(10.0, ρ_homogeneous, h_homogeneous, myx, myw)
+            relative_error = abs(rho_a - 100.0) / 100.0
+            
+            @test relative_error < 0.01  # Should be within 1% for homogeneous case
+            
+            println("n = $n: ρₐ = $(rho_a), error = $(relative_error*100)%")
+        end
+    end
+end
