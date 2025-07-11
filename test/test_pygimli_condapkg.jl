@@ -7,40 +7,26 @@ const PYGIMLI_AVAILABLE = begin
     try
         # Try to load test-only dependencies
         @eval using CondaPkg
+        CondaPkg.resolve()  # Ensure CondaPkg is properly set up
+
         @eval using PythonCall
         
-        # Try to install PyGIMLi using CondaPkg
-        println("Setting up PyGIMLi with CondaPkg...")
+        # Check if PyGIMLi is available through CondaPkg
+        println("Checking PyGIMLi availability...")
+        CondaPkg.withenv() do
+            run(`python --version`)
+            run(`python -c "import pygimli; print(pygimli.__version__)"`)
+        end
         
-        # Add conda channels and install pygimli with specific Python version
-        CondaPkg.add_channel("conda-forge")
-        CondaPkg.add_channel("gimli")
-        
-        # Install packages with proper specification format for CondaPkg
-        CondaPkg.add("python", version=">=3.11,<3.12")
-        CondaPkg.add("numpy", version="<2.0")
-        CondaPkg.add("pygimli")
-        
-        # Force resolver to ensure clean environment
-        CondaPkg.resolve()
+        # Dependencies should be defined in CondaPkg.toml
+        # This will use the existing CondaPkg environment
         
         println("✓ PyGIMLi conda environment set up successfully")
         println("Note: PyGIMLi import will be tested separately to avoid memory issues")
         true
     catch e
         error_str = string(e)
-        if contains(error_str, "datetime") && contains(error_str, "SystemError")
-            println("✗ PyGIMLi installation failed due to Python environment conflict (datetime module issue)")
-            println("This is a known issue with PyGIMLi conda installation. Running basic tests only.")
-            println("To fix this, try: conda create -n pygimli_env python=3.11 pygimli -c conda-forge -c gimli")
-        elseif contains(error_str, "ModuleNotFoundError") && contains(error_str, "pygimli")
-            println("✗ PyGIMLi not found - installation via CondaPkg did not succeed")
-            println("This usually means PyGIMLi is not available in the conda channels or installation failed.")
-            println("To install PyGIMLi manually, try: conda create -n pygimli_env python=3.11 pygimli -c conda-forge -c gimli")
-        else
-            println("✗ PyGIMLi setup failed: $e")
-            println("Running basic tests only.")
-        end
+        println("✗ PyGIMLi setup failed: $e")
         println("Running basic tests only.")
         false
     end
@@ -87,9 +73,8 @@ end
     if PYGIMLI_AVAILABLE
         @testset "PyGIMLi Comparison Tests" begin
             # Attempt to import PyGIMLi for comparison tests
-            pygimli = nothing
             try
-                pygimli = pyimport("pygimli")
+                pyimport("pygimli")
                 println("✓ PyGIMLi successfully imported for comparison tests")
                 println("PyGIMLi version: $(pygimli.__version__)")
             catch e
@@ -97,6 +82,12 @@ end
                 if contains(error_str, "Abort") || contains(error_str, "signal")
                     println("✗ PyGIMLi import caused memory error - skipping comparison tests")
                     println("This is a known issue with PyGIMLi on some systems. Basic tests completed successfully.")
+                    return
+                elseif contains(error_str, "libcholmod") || contains(error_str, "Library not loaded") || contains(error_str, "dlopen")
+                    println("✗ PyGIMLi import failed due to missing native libraries (libcholmod, etc.)")
+                    println("PyGIMLi installation is incomplete - missing required mathematical libraries.")
+                    println("To fix: conda install suitesparse openblas lapack -c conda-forge")
+                    println("Skipping PyGIMLi comparison tests")
                     return
                 else
                     println("✗ PyGIMLi import failed: $e")
@@ -106,45 +97,43 @@ end
             end
             
             # Only run comparison tests if PyGIMLi import succeeded
-            if pygimli !== nothing
-                # Test homogeneous half-space comparison
-                @testset "Homogeneous Half-space vs PyGIMLi" begin
-                    ρ_homogeneous = [100.0]
-                    h_homogeneous = Float64[]
-                    
-                    myx, myw = VES.create_integration_points(120)
-                    
-                    # Test multiple electrode spacings
-                    a_values = [1.0, 2.0, 5.0, 10.0, 20.0]
+            # Test homogeneous half-space comparison
+            @testset "Homogeneous Half-space vs PyGIMLi" begin
+                ρ_homogeneous = [100.0]
+                h_homogeneous = Float64[]
                 
-                for a in a_values
-                    # Our implementation
-                    rho_a_julia = VES.wenner_apparent_resistivity(a, ρ_homogeneous, h_homogeneous, myx, myw)
+                myx, myw = VES.create_integration_points(120)
+                
+                # Test multiple electrode spacings
+                a_values = [1.0, 2.0, 5.0, 10.0, 20.0]
+            
+            for a in a_values
+                # Our implementation
+                rho_a_julia = VES.wenner_apparent_resistivity(a, ρ_homogeneous, h_homogeneous, myx, myw)
+                
+                # PyGIMLi VES modeling
+                try
+                    # For homogeneous half-space, use a very thick layer
+                    thicks = pygimli.Vector([1000.0])  # Very thick layer
+                    res = pygimli.Vector([100.0, 100.0])  # Same resistivity
                     
-                    # PyGIMLi VES modeling
-                    try
-                        # For homogeneous half-space, use a very thick layer
-                        thicks = pygimli.Vector([1000.0])  # Very thick layer
-                        res = pygimli.Vector([100.0, 100.0])  # Same resistivity
-                        
-                        # AB/2 distances for Wenner (a is the electrode spacing)
-                        ab2 = pygimli.Vector([a])
-                        
-                        # Create VES manager and simulate
-                        ves = pygimli.physics.ves.VESManager()
-                        rhoa_pygimli = ves.simulate(res, thicks, ab2)
-                        
-                        # Compare results - should be very close for homogeneous case
-                        relative_error = abs(rho_a_julia - rhoa_pygimli[0]) / rhoa_pygimli[0]
-                        @test relative_error < 0.02  # Within 2%
-                        
-                        println("Homogeneous a = $a m: Julia = $(round(rho_a_julia, digits=2)), PyGIMLi = $(round(rhoa_pygimli[0], digits=2))")
-                        
-                    catch e
-                        println("PyGIMLi modeling failed for a=$a: $e")
-                        # Still test our implementation is reasonable
-                        @test abs(rho_a_julia - 100.0) < 1.0
-                    end
+                    # AB/2 distances for Wenner (a is the electrode spacing)
+                    ab2 = pygimli.Vector([a])
+                    
+                    # Create VES manager and simulate
+                    ves = pygimli.physics.ves.VESManager()
+                    rhoa_pygimli = ves.simulate(res, thicks, ab2)
+                    
+                    # Compare results - should be very close for homogeneous case
+                    relative_error = abs(rho_a_julia - rhoa_pygimli[0]) / rhoa_pygimli[0]
+                    @test relative_error < 0.02  # Within 2%
+                    
+                    println("Homogeneous a = $a m: Julia = $(round(rho_a_julia, digits=2)), PyGIMLi = $(round(rhoa_pygimli[0], digits=2))")
+                    
+                catch e
+                    println("PyGIMLi modeling failed for a=$a: $e")
+                    # Still test our implementation is reasonable
+                    @test abs(rho_a_julia - 100.0) < 1.0
                 end
             end
             
@@ -224,6 +213,7 @@ end
                 end
             end
         end
+    end
     else
         println("✗ PyGIMLi not available. Running basic tests only.")
         println("  To install PyGIMLi, use conda:")
@@ -296,20 +286,6 @@ end
             
             rho_a = VES.wenner_apparent_resistivity(a, ρ_homogeneous, h_homogeneous, myx, myw)
             @test abs(rho_a - 100.0) < 1.0
-        end
-    end
-end
-            
-            # Test homogeneous half-space accuracy
-            ρ_homogeneous = [100.0]
-            h_homogeneous = Float64[]
-            
-            rho_a = VES.wenner_apparent_resistivity(10.0, ρ_homogeneous, h_homogeneous, myx, myw)
-            relative_error = abs(rho_a - 100.0) / 100.0
-            
-            @test relative_error < 0.01  # Should be within 1% for homogeneous case
-            
-            println("n = $n: ρₐ = $(rho_a), error = $(relative_error*100)%")
         end
     end
 end

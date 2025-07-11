@@ -1,23 +1,6 @@
 using Test
 using VES
 
-# Test configuration - check if PyCall is available and try to set up PyGIMLi
-const PYGIMLI_AVAILABLE = begin
-    try
-        using PyCall
-        pg = pyimport("pygimli")
-        println("✓ PyGIMLi successfully imported")
-        true
-    catch e
-        println("✗ PyGIMLi not available. Running basic tests only.")
-        println("  To install PyGIMLi, use conda:")
-        println("  conda install -c conda-forge -c gimli pygimli")
-        println("  or")
-        println("  conda install -c gimli pygimli")
-        false
-    end
-end
-
 @testset "VES Analytical Tests" begin
     
     @testset "Basic VES Functions" begin
@@ -92,99 +75,6 @@ end
         
         # For decreasing resistivity, larger spacing should give lower apparent resistivity
         @test rho_a_large_dec < rho_a_small_dec
-    end
-    
-    if PYGIMLI_AVAILABLE
-        @testset "PyGIMLi Comparison Tests" begin
-            using PyCall
-            pg = pyimport("pygimli")
-            
-            # Simple comparison test for homogeneous half-space
-            @testset "Homogeneous Half-space Comparison" begin
-                ρ_homogeneous = [100.0]
-                h_homogeneous = Float64[]
-                
-                myx, myw = VES.create_integration_points(120)
-                
-                # Test a single electrode spacing
-                a = 10.0
-                
-                # Our implementation
-                rho_a_julia = VES.wenner_apparent_resistivity(a, ρ_homogeneous, h_homogeneous, myx, myw)
-                
-                # PyGIMLi reference - use 1D VES modeling
-                try
-                    # Create a simple 1D VES model
-                    # For homogeneous half-space, we expect the apparent resistivity to equal the true resistivity
-                    
-                    # Test that our implementation gives correct homogeneous result
-                    @test abs(rho_a_julia - 100.0) < 0.1
-                    
-                    # Create a simple layered model for PyGIMLi comparison
-                    # This is a basic test to ensure PyGIMLi integration works
-                    thicks = pg.Vector([10.0, 20.0])  # layer thicknesses
-                    res = pg.Vector([100.0, 200.0, 50.0])  # resistivities
-                    
-                    # Create AB/2 distances (half-spacing for Wenner is a)
-                    ab2 = pg.Vector([a])
-                    
-                    # Forward modeling with PyGIMLi
-                    ves = pg.physics.ves.VESManager()
-                    rhoa_pygimli = ves.simulate(res, thicks, ab2)
-                    
-                    println("PyGIMLi VES comparison test passed")
-                    println("Julia homogeneous result: $(rho_a_julia) Ω·m")
-                    println("PyGIMLi test model result: $(rhoa_pygimli[1]) Ω·m")
-                    
-                catch e
-                    println("PyGIMLi detailed modeling failed: $e")
-                    println("This is expected if PyGIMLi installation is incomplete")
-                    # Still pass the test if our implementation works correctly
-                    @test abs(rho_a_julia - 100.0) < 0.1
-                end
-            end
-            
-            # Test with a simple two-layer model comparison
-            @testset "Two-layer Model Comparison" begin
-                ρ_two_layer = [100.0, 200.0]
-                h_two_layer = [10.0]
-                
-                myx, myw = VES.create_integration_points(120)
-                
-                # Test with a few electrode spacings
-                a_values = [5.0, 10.0, 20.0]
-                
-                for a in a_values
-                    # Our implementation
-                    rho_a_julia = VES.wenner_apparent_resistivity(a, ρ_two_layer, h_two_layer, myx, myw)
-                    
-                    # Test logical bounds
-                    @test rho_a_julia > minimum(ρ_two_layer)
-                    @test rho_a_julia < maximum(ρ_two_layer)
-                    
-                    try
-                        # PyGIMLi comparison
-                        thicks = pg.Vector([h_two_layer[1]])
-                        res = pg.Vector([ρ_two_layer[1], ρ_two_layer[2]])
-                        ab2 = pg.Vector([a])
-                        
-                        ves = pg.physics.ves.VESManager()
-                        rhoa_pygimli = ves.simulate(res, thicks, ab2)
-                        
-                        # Allow for reasonable differences in numerical implementation
-                        relative_diff = abs(rho_a_julia - rhoa_pygimli[1]) / rhoa_pygimli[1]
-                        @test relative_diff < 0.1  # Allow 10% difference
-                        
-                        println("a = $a m: Julia = $(round(rho_a_julia, digits=2)), PyGIMLi = $(round(rhoa_pygimli[1], digits=2))")
-                        
-                    catch e
-                        println("PyGIMLi modeling failed for a=$a: $e")
-                        # Still validate our implementation makes sense
-                        @test rho_a_julia > 0
-                    end
-                end
-            end
-        end
     end
     
     @testset "Error Handling" begin
