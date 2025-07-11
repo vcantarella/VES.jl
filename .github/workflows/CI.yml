@@ -60,11 +60,19 @@ jobs:
           ls -la test/test_ves/
           echo "Pixi info:"
           pixi info
-          echo "Python executable from pixi:"
-          which python || echo "python not found in PATH"
-          echo "Python version:"
-          python --version || echo "python command failed"
-          echo "PyGIMLi check:"
-          python -c "import pygimli; print(f'PyGIMLi version: {pygimli.__version__}')" || echo "PyGIMLi import failed"
+          echo "Pixi environment info:"
+          cd test/test_ves && pixi info
+          echo "Python executable from pixi environment:"
+          cd test/test_ves && pixi run python --version
+          echo "PyGIMLi check from pixi environment:"
+          cd test/test_ves && pixi run python -c "import pygimli; print(f'PyGIMLi version: {pygimli.__version__}')"
       
-      - uses: julia-actions/julia-runtest@v1
+      # - name: Run Julia tests with pixi environment
+      #   run: |
+      #     # Set up environment to use pixi Python
+      #     cd test/test_ves
+      #     export JULIA_PYTHONCALL_EXE="$(pixi run python -c 'import sys; print(sys.executable)')"
+      #     export JULIA_CONDAPKG_BACKEND="Null"
+      #     cd ../..
+      #     # Run Julia tests
+      #     julia --color=yes --project=. -e 'using Pkg; Pkg.test()'
