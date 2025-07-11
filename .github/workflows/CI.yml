@@ -47,7 +47,7 @@ jobs:
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
-            - run:  pixi init /test/test_ves
+      - run:  pixi init /test/test_ves
       - run: cd /test/test_ves
       - run: pixi workspace channel add conda-forge gimli
       - run: pixi add pygimli
