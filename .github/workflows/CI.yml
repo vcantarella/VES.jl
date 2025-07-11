@@ -47,9 +47,24 @@ jobs:
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
-      - run:  pixi init /test/test_ves
-      - run: cd /test/test_ves
-      - run: pixi workspace channel add conda-forge gimli
-      - run: pixi add pygimli
-      - run: cd ../..
+      
+      # Debug: Check pixi environment
+      - name: Debug pixi environment
+        run: |
+          echo "Current directory: $(pwd)"
+          echo "Contents of current directory:"
+          ls -la
+          echo "Contents of test directory:"
+          ls -la test/
+          echo "Contents of test/test_ves directory:"
+          ls -la test/test_ves/
+          echo "Pixi info:"
+          pixi info
+          echo "Python executable from pixi:"
+          which python || echo "python not found in PATH"
+          echo "Python version:"
+          python --version || echo "python command failed"
+          echo "PyGIMLi check:"
+          python -c "import pygimli; print(f'PyGIMLi version: {pygimli.__version__}')" || echo "PyGIMLi import failed"
+      
       - uses: julia-actions/julia-runtest@v1

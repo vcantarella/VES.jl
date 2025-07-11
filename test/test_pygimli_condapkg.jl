@@ -5,17 +5,31 @@ using VES
 # Only attempt if CondaPkg and PythonCall are available (test-only dependencies)
 const PYGIMLI_AVAILABLE = begin
     try
+        # Try to find Python executable in different possible locations
+        pixi_python_candidates = [
+            joinpath(pwd(), "test", "test_ves", ".pixi", "envs", "default", "bin", "python"),  # Local pixi environment
+            joinpath(ENV["HOME"], ".pixi", "envs", "default", "bin", "python"),  # Global pixi environment
+            "python",  # System Python or activated environment
+        ]
         
-        # Force PythonCall to use the pixi environment Python
-        pixi_python = joinpath(pwd(), "test", "test_ves", ".pixi", "envs", "default", "bin", "python")
+        pixi_python = nothing
+        for candidate in pixi_python_candidates
+            if candidate == "python" || isfile(candidate)
+                pixi_python = candidate
+                println("Found Python executable: $pixi_python")
+                break
+            end
+        end
         
-        if !isfile(pixi_python)
-            error("Python executable not found in pixi environment: $pixi_python")
+        if pixi_python === nothing
+            error("Python executable not found in any expected location")
         end
         
         # Set PythonCall configuration to use pixi Python
         ENV["JULIA_CONDAPKG_BACKEND"] = "Null"
-        ENV["JULIA_PYTHONCALL_EXE"] = pixi_python # optional
+        if pixi_python != "python"
+            ENV["JULIA_PYTHONCALL_EXE"] = pixi_python
+        end
         
         # Try to load test-only dependencies
         @eval using PythonCall
