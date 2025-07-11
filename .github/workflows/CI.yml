@@ -41,16 +41,15 @@ jobs:
           cache: true
           cache-write: ${{ github.event_name == 'push' && github.ref_name == 'main' }}
           manifest-path: test/test_ves/pixi.toml
-      - run:  pixi init /test/test_ves
-      - run: cd /test/test_ves
-      - run: pixi workspace channel add conda-forge gimli
-      - run: pixi add pygimli
-      - run: cd ../..
-
       - uses: julia-actions/setup-julia@v2
         with:
           version: ${{ matrix.version }}
           arch: ${{ matrix.arch }}
       - uses: julia-actions/cache@v2
       - uses: julia-actions/julia-buildpkg@v1
+            - run:  pixi init /test/test_ves
+      - run: cd /test/test_ves
+      - run: pixi workspace channel add conda-forge gimli
+      - run: pixi add pygimli
+      - run: cd ../..
       - uses: julia-actions/julia-runtest@v1
