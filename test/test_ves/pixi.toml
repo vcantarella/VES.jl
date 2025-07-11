@@ -2,11 +2,11 @@
 authors = ["vcantarella <vcantarella@gmail.com>"]
 channels = ["conda-forge", "gimli"]
 name = "test_ves"
-platforms = ["osx-arm64"]
+platforms = ["osx-arm64", "linux-64", "win-64"]
 version = "0.1.0"
 
 [tasks]
 
 [dependencies]
 pygimli = ">=1.5.4,<2"
-pandas = ">=2.3.0,<3"
+pandas = ">=2.3.1,<3"
