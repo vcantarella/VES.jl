@@ -107,7 +107,7 @@ end
                 ρ_two_layer = [50.0, 200.0]
                 h_two_layer = [10.0]
                 
-                myx, myw = VES.create_integration_points(120)
+                myx, myw = VES.create_integration_points(160)
                 
                 # Test a few electrode spacings
                 a_values = [2.0, 5.0, 10.0, 20.0, 50.0]
@@ -136,7 +136,7 @@ end
                     relative_error = abs(rho_a_julia - rhoa_pygimli_res) / rhoa_pygimli_res
                     @test relative_error < 0.15 # Within 15% for complex models
 
-                    println("Two-layer a = $a m: Julia = $(round(rho_a_julia, digits=2)), PyGIMLi = $(round(rhoa_pygimli[0], digits=2)), Error = $(round(relative_error*100, digits=1))%")
+                    println("Two-layer a = $a m: Julia = $(round(rho_a_julia, digits=2)), PyGIMLi = $(round(rhoa_pygimli_res, digits=2)), Error = $(round(relative_error*100, digits=1))%")
                 end
             end
             
@@ -145,7 +145,7 @@ end
                 ρ_three_layer = [100.0, 20.0, 500.0]
                 h_three_layer = [5.0, 15.0]
                 
-                myx, myw = VES.create_integration_points(120)
+                myx, myw = VES.create_integration_points(160)
                 
                 # Test a few electrode spacings
                 a_values = [2.0, 10.0, 30.0]
@@ -170,7 +170,7 @@ end
                     relative_error = abs(rho_a_julia - rhoa_pygimli_res) / rhoa_pygimli_res
                     @test relative_error < 0.25  # Within 25% for complex models
 
-                    println("Three-layer a = $a m: Julia = $(round(rho_a_julia, digits=2)), PyGIMLi = $(round(rhoa_pygimli[0], digits=2)), Error = $(round(relative_error*100, digits=1))%")
+                    println("Three-layer a = $a m: Julia = $(round(rho_a_julia, digits=2)), PyGIMLi = $(round(rhoa_pygimli_res, digits=2)), Error = $(round(relative_error*100, digits=1))%")
                 end
             end
         end
